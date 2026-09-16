@@ -4,7 +4,7 @@
    Web App URL ending in /exec.
    ========================================================= */
 
-const GOOGLE_SCRIPT_URL = "PASTE_YOUR_GOOGLE_APPS_SCRIPT_EXEC_URL_HERE";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxk01-nc-p87kYg_GwkqM6LnO4oNUYAWwikll4AdLJ5LvIub4fwMj350gsAox9z7yPV/exec";
 
 const WHATSAPP_NUMBER = "923001535542";
 const CLINIC_NAME = "CDC CARE DIAGNOSTIC CENTRE";
