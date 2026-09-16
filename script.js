@@ -1,10 +1,10 @@
 /* =========================================================
    CDC CARE DIAGNOSTIC CENTRE - FRONTEND JAVASCRIPT
-   Replace the URL below with your deployed Google Apps Script
-   Web App URL ending in /exec.
+   Connected to Google Apps Script Web App + Google Sheet
    ========================================================= */
 
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQIw6CgocdoAIAIPdQXw2oN5IsL0UNISfVxkqIqq_8d5Vdwp3smaoPCe37etG6gGup/exec";
+const GOOGLE_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbwQIw6CgocdoAIAIPdQXw2oN5IsL0UNISfVxkqIqq_8d5Vdwp3smaoPCe37etG6gGup/exec";
 
 const WHATSAPP_NUMBER = "923001535542";
 const CLINIC_NAME = "CDC CARE DIAGNOSTIC CENTRE";
@@ -43,8 +43,10 @@ function setupSmoothNavigation() {
     link.addEventListener("click", event => {
       const targetId = link.getAttribute("href");
       if (!targetId || targetId === "#") return;
+
       const target = document.querySelector(targetId);
       if (!target) return;
+
       event.preventDefault();
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -55,9 +57,14 @@ function setupWhatsAppButtons() {
   document.querySelectorAll("[data-whatsapp]").forEach(button => {
     button.addEventListener("click", event => {
       event.preventDefault();
-      const message = button.dataset.message ||
+
+      const message =
+        button.dataset.message ||
         `Hello ${CLINIC_NAME}, I would like to inquire about your medical/diagnostic services.`;
-      const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+
+      const url =
+        `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+
       window.open(url, "_blank", "noopener");
     });
   });
@@ -69,19 +76,28 @@ function setupServiceButtons() {
   document.querySelectorAll(".inquire-btn").forEach(button => {
     button.addEventListener("click", () => {
       const service = button.dataset.service || "";
+
       if (appointmentService && service) {
-        const option = [...appointmentService.options].find(o => o.text === service);
+        const option = [...appointmentService.options].find(
+          option => option.text === service
+        );
         if (option) appointmentService.value = option.value;
       }
-      document.getElementById("appointment")?.scrollIntoView({ behavior: "smooth" });
+
+      document.getElementById("appointment")?.scrollIntoView({
+        behavior: "smooth"
+      });
     });
   });
 
   document.querySelectorAll("[data-service-link]").forEach(button => {
     button.addEventListener("click", () => {
       const service = button.dataset.serviceLink || "";
+
       if (appointmentService && service) {
-        const option = [...appointmentService.options].find(o => o.text === service);
+        const option = [...appointmentService.options].find(
+          option => option.text === service
+        );
         if (option) appointmentService.value = option.value;
       }
     });
@@ -90,10 +106,15 @@ function setupServiceButtons() {
 
 function setupDateMinimum() {
   const dateInput = document.querySelector('input[name="preferredDate"]');
+
   if (dateInput) {
     const today = new Date();
-    const local = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
-      .toISOString().split("T")[0];
+    const local = new Date(
+      today.getTime() - today.getTimezoneOffset() * 60000
+    )
+      .toISOString()
+      .split("T")[0];
+
     dateInput.min = local;
   }
 }
@@ -117,15 +138,19 @@ async function handleFormSubmit(event) {
     return;
   }
 
-  // Basic honeypot spam protection.
   const honeypot = form.querySelector('input[name="website"]');
+
   if (honeypot && honeypot.value.trim() !== "") {
     setStatus(status, "Unable to submit this request.", "error");
     return;
   }
 
-  if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("PASTE_YOUR_")) {
-    setStatus(status, "The website backend is not configured yet. Please add the Google Apps Script /exec URL in script.js.", "error");
+  if (!GOOGLE_SCRIPT_URL || !GOOGLE_SCRIPT_URL.endsWith("/exec")) {
+    setStatus(
+      status,
+      "The Google Apps Script /exec URL is not configured correctly.",
+      "error"
+    );
     return;
   }
 
@@ -137,38 +162,51 @@ async function handleFormSubmit(event) {
   button.innerHTML = "Submitting...";
 
   const formData = new FormData(form);
+
   const data = {
     formType: formData.get("formType") || "Contact",
-    name: formData.get("name")?.trim() || "",
-    email: formData.get("email")?.trim() || "",
-    phone: formData.get("phone")?.trim() || "",
-    preferredDate: formData.get("preferredDate") || "",
-    preferredTime: formData.get("preferredTime") || "",
-    service: formData.get("service") || "",
-    inquiryType: formData.get("inquiryType") || "",
-    message: formData.get("message")?.trim() || "",
+    name: String(formData.get("name") || "").trim(),
+    email: String(formData.get("email") || "").trim(),
+    phone: String(formData.get("phone") || "").trim(),
+    preferredDate: String(formData.get("preferredDate") || ""),
+    preferredTime: String(formData.get("preferredTime") || ""),
+    service: String(formData.get("service") || ""),
+    inquiryType: String(formData.get("inquiryType") || ""),
+    message: String(formData.get("message") || "").trim(),
     source: `${CLINIC_NAME} Website`,
     website: ""
   };
 
   try {
+    /*
+      Content-Type text/plain keeps this request "simple" and avoids
+      a browser CORS preflight, which is important for Apps Script Web Apps.
+    */
     const response = await fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(data)
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(data),
+      redirect: "follow"
     });
 
     const raw = await response.text();
-    let result;
 
+    let result;
     try {
       result = JSON.parse(raw);
-    } catch {
-      throw new Error("The backend returned an invalid response.");
+    } catch (parseError) {
+      console.error("Apps Script returned:", raw);
+      throw new Error(
+        "Google Apps Script did not return valid JSON. Check the Web App deployment."
+      );
     }
 
-    if (!response.ok || !result.success) {
-      throw new Error(result.message || "Unable to submit the request.");
+    console.log("Apps Script response:", result);
+
+    if (!result.success) {
+      throw new Error(result.message || "Google Sheet rejected the request.");
     }
 
     setStatus(
@@ -179,11 +217,13 @@ async function handleFormSubmit(event) {
 
     form.reset();
     setupDateMinimum();
+
   } catch (error) {
     console.error("Form submission error:", error);
+
     setStatus(
       status,
-      "We could not submit your request. Please check the backend URL or contact the centre by phone or WhatsApp.",
+      "We could not submit your request. Please check the Google Apps Script deployment or contact the centre by phone or WhatsApp.",
       "error"
     );
   } finally {
@@ -195,18 +235,17 @@ async function handleFormSubmit(event) {
 
 function setStatus(element, message, type) {
   if (!element) return;
+
   element.textContent = message;
   element.className = `form-status ${type}`;
 }
 
-/*
-  OPTIONAL: You can use this helper elsewhere on the page
-  if you want a dynamic WhatsApp message for a selected service.
-*/
 function openWhatsAppForService(serviceName) {
   const message =
     `Hello ${CLINIC_NAME}, I would like to inquire about ${serviceName}.`;
+
   const url =
     `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+
   window.open(url, "_blank", "noopener");
 }
